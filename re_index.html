@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>칼로리 트래커</title>
+<style>
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#f2f4f6;font-family:'Pretendard',-apple-system,BlinkMacSystemFont,sans-serif;color:#191f28}
+input,select,button{font-family:inherit}
+input:focus,select:focus{outline:none;border-color:#3182f6!important;box-shadow:0 0 0 3px rgba(49,130,246,0.1)}
+.card{background:#fff;border-radius:20px;padding:24px;margin-bottom:12px}
+.btn-primary{background:#3182f6;color:#fff;border:none;border-radius:14px;padding:16px;font-size:16px;font-weight:700;cursor:pointer;width:100%;transition:background .15s}
+.btn-primary:hover{background:#1c6fe0}
+.btn-primary:disabled{background:#e5e8eb;color:#adb5bd;cursor:default}
+.btn-sm{background:#f2f4f6;color:#4e5968;border:none;border-radius:10px;padding:7px 13px;font-size:13px;font-weight:600;cursor:pointer}
+.btn-sm:hover{background:#e5e8eb}
+.btn-sm.on{background:#3182f6;color:#fff}
+.tab-btn{flex:1;padding:10px 4px;border-radius:12px;border:none;cursor:pointer;font-size:13px;font-weight:600;transition:all .15s;white-space:nowrap;background:transparent;color:#8b95a1}
+.tab-btn.on{background:#3182f6;color:#fff}
+.ifield{width:100%;background:#f8f9fa;border:1.5px solid #f0f1f3;border-radius:12px;padding:13px 14px;font-size:15px;color:#191f28}
+.ifield::placeholder{color:#c9d4e0}
+select.ifield{appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' viewBox='0 0 24 24'%3E%3Cpath stroke='%238b95a1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' d='M6 9l6 6 6-6'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 12px center;padding-right:36px}
+.litem{display:flex;align-items:center;padding:12px 0;border-bottom:1px solid #f2f4f6}
+.litem:last-child{border-bottom:none;padding-bottom:0}
+.rmv{background:none;border:none;color:#d1d5db;cursor:pointer;font-size:20px;padding:0 0 0 8px;flex-shrink:0}
+.rmv:hover{color:#f04452}
+.chip{background:#f8f9fa;border-radius:14px;padding:14px 16px}
+.ai-badge{display:inline-flex;align-items:center;gap:4px;background:linear-gradient(90deg,#e8f4ff,#f0f5ff);color:#3182f6;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;border:1px solid #c5d8f8}
+.ntag{font-size:11px;color:#8b95a1;background:#f2f4f6;border-radius:5px;padding:2px 7px}
+.sdrop{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#fff;border-radius:16px;box-shadow:0 8px 32px rgba(0,0,0,.13);overflow:hidden;z-index:300;border:1.5px solid #f0f1f3;max-height:360px;overflow-y:auto;display:none}
+.sdrop.open{display:block}
+.sitem{display:flex;align-items:center;padding:12px 16px;cursor:pointer;border-bottom:1px solid #f8f9fa;transition:background .1s}
+.sitem:hover,.sitem.hov{background:#f0f5ff}
+.sitem:last-child{border-bottom:none}
+.spinner{display:inline-block;width:16px;height:16px;border:2px solid #e5e8eb;border-top-color:#3182f6;border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle}
+@keyframes spin{to{transform:rotate(360deg)}}
+.tooltip-box{position:fixed;background:#fff;border:1.5px solid #f0f1f3;border-radius:12px;padding:10px 14px;font-size:12px;box-shadow:0 4px 16px rgba(0,0,0,.12);pointer-events:none;display:none;z-index:999;min-width:130px}
+.hidden{display:none!important}
+.gr{display:grid}
+.gr2{grid-template-columns:1fr 1fr}
+.gr3{grid-template-columns:1fr 1fr 1fr}
+.gap8{gap:8px}
+.gap10{gap:10px}
+.row{display:flex;align-items:center}
+.between{justify-content:space-between}
+.wrap{flex-wrap:wrap}
+</style>
+</head>
+<body>
+<!-- 툴팁 -->
+<div id="chartTip" class="tooltip-box"></div>
+
+<!-- 네비 -->
+<div style="background:#fff;position:sticky;top:0;z-index:100;border-bottom:1px solid #f2f4f6">
+  <div style="max-width:520px;margin:0 auto;padding:0 20px;display:flex;align-items:center;height:56px">
+    <span style="font-size:20px">🥗</span>
+    <span style="margin-left:8px;font-size:17px;font-weight:700;color:#191f28">칼로리 트래커</span>
+    <span class="ai-badge" style="margin-left:auto">✦ AI 음식 검색</span>
+  </div>
+</div>
+
+<div id="app" style="max-width:520px;margin:0 auto;padding:16px 16px 80px"></div>
+
+<script>
+// ── 상수 ──────────────────────────────────────────────────────
+const EX = [
+  {name:"걷기",met:3.5},{name:"조깅",met:7.0},{name:"달리기",met:11.5},
+  {name:"사이클",met:8.0},{name:"수영",met:8.0},{name:"헬스(웨이트)",met:5.0},
+  {name:"요가",met:3.0},{name:"줄넘기",met:11.0},{name:"등산",met:6.0},{name:"테니스",met:7.3}
+];
+const ACT = {sedentary:1.2,light:1.375,moderate:1.55,active:1.725,very_active:1.9};
+const ACT_LABEL = {sedentary:"비활동적 (주로 앉아서)",light:"가벼운 활동 (주 1~2회)",moderate:"보통 활동 (주 3~5회)",active:"활발한 활동 (주 6~7회)",very_active:"매우 활발 (운동선수 수준)"};
+const SK = "calorie_tracker_v3";
+const DAY = ["일","월","화","수","목","금","토"];
+
+// ── 유틸 ──────────────────────────────────────────────────────
+const today = () => new Date().toISOString().slice(0,10);
+const addDays = (ds,n) => { const d=new Date(ds); d.setDate(d.getDate()+n); return d.toISOString().slice(0,10); };
+const fmtD = ds => ds.slice(5).replace("-","/");
+const comma = n => (+n||0).toLocaleString();
+const calcBMR = (w,h,a,g) => g==="male" ? 88.362+13.397*w+4.799*h-5.677*a : 447.593+9.247*w+3.098*h-4.33*a;
+const calcTDEE = (bmr,act) => bmr*(ACT[act]||1.2);
+const el = id => document.getElementById(id);
+const q = sel => document.querySelector(sel);
+
+// ── 상태 ──────────────────────────────────────────────────────
+let S = { profile:{weight:"",height:"",age:"",gender:"male",activity:"moderate"}, profileSaved:false,
+          logs:{}, goals:[], tab:"today", section:"food",
+          foodName:"", foodKcal:"", foodProtein:"", foodCarbs:"", foodFat:"",
+          exName:"", exMin:"",
+          goalMonth:"", goalKg:"",
+          srQuery:"", srResults:[], srStatus:"idle", srOpen:false, srHov:-1,
+          chartRange:"30" };
+
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(SK)||"{}");
+    if(s.profile){S.profile=s.profile; S.profileSaved=true;}
+    if(s.logs) S.logs=s.logs;
+    if(s.goals) S.goals=s.goals;
+  }catch{}
+}
+function save(){ localStorage.setItem(SK, JSON.stringify({profile:S.profile,logs:S.logs,goals:S.goals})); }
+
+// ── AI 검색 ───────────────────────────────────────────────────
+let srTimer = null;
+async function searchFood(q){
+  S.srStatus="loading"; S.srOpen=true; S.srResults=[]; render();
+  try{
+    const prompt=`사용자가 "${q}"를 검색했습니다.\n이 음식과 관련된 한국 음식 목록 최대 7개를 JSON 배열로만 응답해주세요.\n각 항목: name(음식명), kcal(1인분 칼로리 정수), protein(단백질g 소수점1자리), carbs(탄수화물g 소수점1자리), fat(지방g 소수점1자리), serving(1인분 기준).\nJSON 배열만 응답, 다른 텍스트 절대 포함 금지.`;
+    const res = await fetch("https://api.anthropic.com/v1/messages",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({model:"claude-sonnet-4-20250514",max_tokens:1000,messages:[{role:"user",content:prompt}]})});
+    const data = await res.json();
+    const txt = data.content?.[0]?.text||"[]";
+    S.srResults = JSON.parse(txt.replace(/```json|```/g,"").trim());
+    S.srStatus="done";
+  }catch{S.srStatus="error"; S.srResults=[];}
+  render();
+}
+
+// ── 계산 ──────────────────────────────────────────────────────
+function stats(){
+  const t = today();
+  const log = S.logs[t]||{foods:[],exercises:[]};
+  const food = log.foods.reduce((s,f)=>s+f.kcal,0);
+  const burn = log.exercises.reduce((s,e)=>s+e.kcal,0);
+  const bmr = S.profileSaved ? calcBMR(+S.profile.weight,+S.profile.height,+S.profile.age,S.profile.gender) : 0;
+  const tdee = S.profileSaved ? calcTDEE(bmr,S.profile.activity) : 2000;
+  return {food,burn,net:food-burn,bmr,tdee,deficit:tdee-(food-burn),log,t};
+}
+
+// ── 차트 데이터 ───────────────────────────────────────────────
+function buildChartData(){
+  if(!S.profileSaved) return [];
+  const days = +S.chartRange;
+  const startW = +S.profile.weight;
+  if(!startW) return [];
+  const {bmr,tdee} = stats();
+  const points=[];
+  let cum=0;
+  const logDates=Object.keys(S.logs).sort();
+  const firstLog=logDates.length?logDates[0]:today();
+  const startDate=addDays(today(),-(days-1));
+  let baseline=0;
+  for(let d=firstLog;d<startDate;d=addDays(d,1)){
+    const l=S.logs[d];
+    if(l){const f=l.foods.reduce((s,x)=>s+x.kcal,0);const b=l.exercises.reduce((s,x)=>s+x.kcal,0);baseline+=(tdee-(f-b))/7700;}
+  }
+  for(let i=0;i<days;i++){
+    const ds=addDays(today(),-(days-1-i));
+    if(ds<=today()){
+      const l=S.logs[ds];
+      if(l){const f=l.foods.reduce((s,x)=>s+x.kcal,0);const b=l.exercises.reduce((s,x)=>s+x.kcal,0);cum+=(tdee-(f-b))/7700;}
+      points.push({date:fmtD(ds),dateStr:ds,actual:parseFloat((startW+baseline+cum).toFixed(3)),goal:null,isToday:ds===today()});
+    }
+  }
+  if(S.goals.length){
+    const sg=[...S.goals].sort((a,b)=>a.month.localeCompare(b.month));
+    const todayActual=points.find(p=>p.isToday)?.actual||startW;
+    const mt={};
+    sg.forEach((g,gi)=>{const pw=gi===0?todayActual:(mt[sg[gi-1].month]||todayActual);mt[g.month]=parseFloat((pw-(+g.targetKg)).toFixed(3));});
+    const allPts=[];
+    for(let i=0;i<days;i++) allPts.push(addDays(today(),-(days-1-i)));
+    const fd=Math.min(90,days);
+    for(let i=1;i<=fd;i++) allPts.push(addDays(today(),i));
+    const gm={};
+    allPts.forEach(ds=>{
+      const ym=ds.slice(0,7);
+      const ni=sg.findIndex(g=>g.month>=ym);
+      const pi=sg.findIndex(g=>g.month>ym)-1;
+      if(ds<today()){gm[ds]=null;return;}
+      if(ni===-1){gm[ds]=mt[sg[sg.length-1].month];return;}
+      const ng=sg[ni];
+      const [y,m]=ng.month.split("-").map(Number);
+      const me=new Date(y,m,0).toISOString().slice(0,10);
+      const sw=pi>=0?mt[sg[pi].month]:todayActual;
+      const ew=mt[ng.month];
+      const td2=Math.max(1,(new Date(me)-new Date(today()))/86400000);
+      const pd=(new Date(ds)-new Date(today()))/86400000;
+      gm[ds]=parseFloat((sw+(ew-sw)*Math.min(1,pd/td2)).toFixed(3));
+    });
+    points.forEach(p=>{p.goal=gm[p.dateStr]||null;});
+    for(let i=1;i<=fd;i++){
+      const ds=addDays(today(),i);
+      if(gm[ds]!=null) points.push({date:fmtD(ds),dateStr:ds,actual:null,goal:gm[ds],isToday:false});
+    }
+  }
+  return points;
+}
+
+// ── SVG 차트 렌더 ─────────────────────────────────────────────
+function renderChart(pts){
+  if(!pts.length) return `<div style="height:200px;display:flex;align-items:center;justify-content:center;color:#c9d4e0;font-size:13px">음식/운동을 기록하면 추이선이 표시돼요</div>`;
+  const W=460,H=200,PL=46,PR=10,PT=12,PB=24;
+  const iW=W-PL-PR, iH=H-PT-PB;
+  const ws=pts.flatMap(p=>[p.actual,p.goal].filter(x=>x!=null));
+  if(!ws.length) return `<div style="height:200px;display:flex;align-items:center;justify-content:center;color:#c9d4e0;font-size:13px">프로필을 저장하고 기록을 추가하면 그래프가 표시돼요</div>`;
+  const minW=Math.floor(Math.min(...ws)*10)/10-0.3;
+  const maxW=Math.ceil(Math.max(...ws)*10)/10+0.3;
+  const xS=i=>PL+i*(iW/(pts.length-1||1));
+  const yS=v=>PT+iH-(((v-minW)/(maxW-minW||1))*iH);
+  // 격자
+  let grid=""; const yt=4;
+  for(let i=0;i<=yt;i++){
+    const y=PT+i*(iH/yt);
+    const v=(maxW-(i*(maxW-minW)/yt)).toFixed(1);
+    grid+=`<line x1="${PL}" y1="${y}" x2="${W-PR}" y2="${y}" stroke="#f0f1f3" stroke-width="1"/>`;
+    grid+=`<text x="${PL-4}" y="${y+4}" text-anchor="end" font-size="9" fill="#8b95a1">${v}</text>`;
+  }
+  // X축 레이블
+  let xlabels="";
+  const step=Math.max(1,Math.floor(pts.length/8));
+  pts.forEach((p,i)=>{
+    if(i%step===0||i===pts.length-1)
+      xlabels+=`<text x="${xS(i)}" y="${H-4}" text-anchor="middle" font-size="9" fill="#8b95a1">${p.date}</text>`;
+  });
+  // 오늘 기준선
+  const ti=pts.findIndex(p=>p.isToday);
+  let todayLine="";
+  if(ti>=0){
+    const tx=xS(ti);
+    todayLine=`<line x1="${tx}" y1="${PT}" x2="${tx}" y2="${PT+iH}" stroke="#c9d4e0" stroke-width="1" stroke-dasharray="4,2"/>
+    <text x="${tx}" y="${PT-2}" text-anchor="middle" font-size="9" fill="#8b95a1">오늘</text>`;
+  }
+  // 실제선
+  const aPts=pts.map((p,i)=>p.actual!=null?`${xS(i)},${yS(p.actual)}`:null).filter(Boolean);
+  let actualPath="";
+  if(aPts.length>1) actualPath=`<polyline points="${aPts.join(" ")}" fill="none" stroke="#3182f6" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>`;
+  // 목표선
+  const gPts=pts.map((p,i)=>p.goal!=null?`${xS(i)},${yS(p.goal)}`:null);
+  let goalPath="";
+  if(S.goals.length){
+    // 연속 구간별로 나눠서 그리기
+    let seg=[];
+    gPts.forEach((p,i)=>{
+      if(p){seg.push(p);}
+      else if(seg.length>1){goalPath+=`<polyline points="${seg.join(" ")}" fill="none" stroke="#ff9500" stroke-width="2" stroke-dasharray="6,3"/>`;seg=[];}
+      else{seg=[];}
+    });
+    if(seg.length>1) goalPath+=`<polyline points="${seg.join(" ")}" fill="none" stroke="#ff9500" stroke-width="2" stroke-dasharray="6,3"/>`;
+  }
+  // 호버 포인트 (data 속성으로 저장)
+  let circles="";
+  pts.forEach((p,i)=>{
+    const cx=xS(i);
+    if(p.actual!=null) circles+=`<circle cx="${cx}" cy="${yS(p.actual)}" r="4" fill="transparent" data-idx="${i}" class="chov"/>`;
+    if(p.goal!=null) circles+=`<circle cx="${cx}" cy="${yS(p.goal)}" r="4" fill="transparent" data-idx="${i}" class="chov"/>`;
+  });
+
+  return `<div style="overflow-x:auto;-webkit-overflow-scrolling:touch">
+  <svg viewBox="0 0 ${W} ${H}" width="100%" style="min-width:280px;display:block" id="chartSvg" data-pts='${JSON.stringify(pts.map(p=>({date:p.date,actual:p.actual,goal:p.goal})))}'> 
+    ${grid}${xlabels}${todayLine}${actualPath}${goalPath}${circles}
+  </svg></div>`;
+}
+
+// ── 목표 달성 플랜 ────────────────────────────────────────────
+function goalPlanHTML(){
+  if(!S.goals.length) return "";
+  const {bmr,tdee} = stats();
+  let html=`<div><div style="font-size:13px;font-weight:700;color:#191f28;margin-bottom:10px">🔥 목표 달성 플랜</div>`;
+  S.goals.forEach((g,gi)=>{
+    const [y,m]=g.month.split("-").map(Number);
+    const me=new Date(y,m,0);
+    const tm=new Date(today()+"T00:00:00");
+    const dl=Math.max(1,Math.round((me-tm)/86400000)+1);
+    const prev=S.goals.slice(0,gi).reduce((s,pg)=>s+(+pg.targetKg),0);
+    const sw=(+S.profile.weight)-prev;
+    const tw=sw-(+g.targetKg);
+    const dd=Math.round((+g.targetKg)*7700/dl);
+    const ak=Math.round(tdee-dd);
+    const ok=ak>=Math.round(bmr);
+    const past=me<tm;
+    const sc=past?"#c9d4e0":ok?"#00c471":"#f04452";
+    const sb=past?"#f8f9fa":ok?"#e8faf2":"#fff0f1";
+    const sl=past?"기간 종료":ok?"달성 가능":"과도한 목표";
+    html+=`<div style="background:${sb};border-radius:16px;padding:16px;margin-bottom:10px;border:1.5px solid ${sc}22">
+      <div class="row between" style="margin-bottom:12px">
+        <div><span style="font-size:15px;font-weight:700">${y}년 ${m}월 목표</span><span style="margin-left:8px;font-size:12px;color:#8b95a1">${sw.toFixed(1)} → ${tw.toFixed(1)} kg</span></div>
+        <span style="font-size:11px;font-weight:700;color:${sc};background:#fff;padding:3px 10px;border-radius:20px;border:1px solid ${sc}44;white-space:nowrap">${sl}</span>
+      </div>
+      <div class="gr gr2 gap8" style="margin-bottom:${past?'0':'12px'}">
+        <div style="background:#fff;border-radius:12px;padding:12px 8px;text-align:center">
+          <div style="font-size:10px;color:#8b95a1;margin-bottom:3px">남은 일수</div>
+          <div style="font-size:22px;font-weight:800;color:#191f28">${past?"−":dl}</div>
+          <div style="font-size:10px;color:#c9d4e0">일</div>
+        </div>
+        <div style="background:${past?"#f8f9fa":ok?"#f0f5ff":"#fff0f1"};border-radius:12px;padding:12px 8px;text-align:center;border:1.5px solid ${past?"#f0f1f3":ok?"#3182f620":"#f0445220"}">
+          <div style="font-size:10px;color:#8b95a1;margin-bottom:3px">하루 목표 섭취량</div>
+          <div style="font-size:22px;font-weight:800;color:${past?"#c9d4e0":ok?"#3182f6":"#f04452"}">${past?"−":comma(ak)}</div>
+          <div style="font-size:10px;color:#c9d4e0">kcal/일</div>
+        </div>
+      </div>
+      ${!past?`<div style="font-size:12px;color:${ok?"#4e5968":"#f04452"};line-height:1.7;padding:10px 14px;background:#fff;border-radius:12px">
+        ${ok?`하루 <b style="color:#3182f6">${comma(ak)} kcal</b> 이내로 먹으면 ${m}월 말까지 <b>${(+g.targetKg).toFixed(1)} kg</b> 감량할 수 있어요.<br><span style="color:#8b95a1;font-size:11px">운동으로 소모한 칼로리만큼 더 먹어도 괜찮아요.</span>`:
+        `목표를 달성하려면 하루 <b>${comma(ak)} kcal</b>만 먹어야 하는데,<br>기초대사량 <b>${comma(Math.round(bmr))} kcal</b>보다 낮아서 건강에 위험해요.<br><span style="font-size:11px">목표 감량을 줄이거나 다음 달로 나눠서 설정해보세요.</span>`}
+      </div>`:""}
+    </div>`;
+  });
+  return html+"</div>";
+}
+
+// ── 메인 렌더 ─────────────────────────────────────────────────
+function render(){
+  const {food,burn,net,bmr,tdee,deficit,log,t} = stats();
+  const pct=Math.min((net/tdee)*100,100);
+  const wDay=deficit/7700, wWeek=wDay*7;
+  const si = deficit>=300?{label:"목표 달성 중",color:"#00c471",bg:"#e8faf2"}:
+             deficit<=-200?{label:"목표 초과",color:"#f04452",bg:"#fff0f1"}:
+             {label:"거의 맞췄어요",color:"#ff9500",bg:"#fff8ee"};
+
+  let html="";
+
+  // ── 히어로 ──
+  if(S.profileSaved){
+    html+=`<div class="card" style="padding:0;overflow:hidden;margin-bottom:12px">
+      <div style="background:#3182f6;padding:28px 24px 32px">
+        <div style="font-size:13px;color:rgba(255,255,255,.75);font-weight:500;margin-bottom:6px">오늘 순 칼로리</div>
+        <div style="display:flex;align-items:flex-end;gap:6px">
+          <span style="font-size:48px;font-weight:800;color:#fff;letter-spacing:-2px;line-height:1">${comma(net)}</span>
+          <span style="font-size:18px;color:rgba(255,255,255,.8);font-weight:500;margin-bottom:4px">kcal</span>
+        </div>
+        <div style="margin-top:20px;background:rgba(255,255,255,.22);border-radius:100px;height:7px;overflow:hidden">
+          <div style="width:${pct}%;height:100%;background:#fff;border-radius:100px;transition:width .5s"></div>
+        </div>
+        <div style="margin-top:8px;display:flex;justify-content:space-between;font-size:12px;color:rgba(255,255,255,.65)">
+          <span>0</span><span>목표 ${comma(Math.round(tdee))} kcal</span>
+        </div>
+      </div>
+      <div class="gr gr3">
+        ${[["섭취",food,"🍽"],["소모",burn,"🔥"],["기초대사량",Math.round(bmr),"💤"]].map((s,i)=>`
+        <div style="padding:16px 12px;text-align:center;${i<2?"border-right:1px solid #f2f4f6":""}">
+          <div style="font-size:11px;color:#8b95a1;margin-bottom:5px">${s[2]} ${s[0]}</div>
+          <div style="font-size:17px;font-weight:700;color:#191f28">${comma(s[1])}</div>
+          <div style="font-size:10px;color:#c9d4e0;margin-top:1px">kcal</div>
+        </div>`).join("")}
+      </div>
+    </div>`;
+
+    // ── 체중 예측 ──
+    html+=`<div class="card" style="margin-bottom:12px">
+      <div class="row" style="gap:10px;margin-bottom:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:${si.bg};display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">⚖️</div>
+        <div><div style="font-size:15px;font-weight:700">예상 체중 변화</div><div style="font-size:12px;color:#8b95a1;margin-top:1px">오늘 칼로리 기준 추정</div></div>
+        <div style="margin-left:auto;font-size:12px;font-weight:600;color:${si.color};background:${si.bg};padding:5px 12px;border-radius:20px;flex-shrink:0">${si.label}</div>
+      </div>
+      <div class="gr gr2 gap10" style="margin-bottom:14px">
+        <div class="chip"><div style="font-size:11px;color:#8b95a1;font-weight:500;margin-bottom:6px">오늘 하루</div>
+          <div style="font-size:26px;font-weight:800;color:${wDay>=0?"#00c471":"#f04452"};letter-spacing:-1px">${wDay>=0?"−":"+"}<span>${Math.abs(wDay*1000).toFixed(0)}</span><span style="font-size:14px;font-weight:600;margin-left:2px">g</span></div></div>
+        <div class="chip"><div style="font-size:11px;color:#8b95a1;font-weight:500;margin-bottom:6px">7일 유지 시</div>
+          <div style="font-size:26px;font-weight:800;color:${wWeek>=0?"#00c471":"#f04452"};letter-spacing:-1px">${wWeek>=0?"−":"+"}<span>${Math.abs(wWeek).toFixed(2)}</span><span style="font-size:14px;font-weight:600;margin-left:2px">kg</span></div></div>
+      </div>
+      <div style="padding:12px 14px;background:#f8f9fa;border-radius:12px;font-size:13px;color:#4e5968;line-height:1.6">
+        ${deficit>=0?`하루 ${comma(Math.round(deficit))} kcal 부족 → 체중 감량 추세예요`:`하루 ${comma(Math.round(Math.abs(deficit)))} kcal 초과 → 체중이 늘 수 있어요`}
+      </div>
+    </div>`;
+  }
+
+  // ── 프로필 ──
+  html+=`<div class="card">
+    <div class="row" style="gap:10px;margin-bottom:18px">
+      <div style="width:40px;height:40px;border-radius:12px;background:#f0f5ff;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">👤</div>
+      <div style="font-size:15px;font-weight:700">내 정보</div>
+      ${S.profileSaved?`<span style="margin-left:auto;font-size:12px;color:#00c471;font-weight:600">저장됨 ✓</span>`:""}
+    </div>
+    <div class="gr gr2 gap10">
+      ${[["몸무게 (kg)","weight","65"],["키 (cm)","height","170"],["나이","age","28"]].map(f=>`
+      <div><div style="font-size:12px;color:#8b95a1;margin-bottom:6px;font-weight:500">${f[0]}</div>
+      <input class="ifield" type="number" placeholder="${f[2]}" value="${S.profile[f[1]]}" oninput="S.profile['${f[1]}']=this.value" style="width:100%"/></div>`).join("")}
+      <div><div style="font-size:12px;color:#8b95a1;margin-bottom:6px;font-weight:500">성별</div>
+      <select class="ifield" onchange="S.profile.gender=this.value">
+        <option value="male" ${S.profile.gender==="male"?"selected":""}>남성</option>
+        <option value="female" ${S.profile.gender==="female"?"selected":""}>여성</option>
+      </select></div>
+      <div style="grid-column:1/-1"><div style="font-size:12px;color:#8b95a1;margin-bottom:6px;font-weight:500">활동 수준</div>
+      <select class="ifield" onchange="S.profile.activity=this.value">
+        ${Object.entries(ACT_LABEL).map(([k,v])=>`<option value="${k}" ${S.profile.activity===k?"selected":""}>${v}</option>`).join("")}
+      </select></div>
+    </div>
+    <button class="btn-primary" style="margin-top:16px" onclick="doSaveProfile()" ${(!S.profile.weight||!S.profile.height||!S.profile.age)?"disabled":""}>저장하기</button>
+  </div>`;
+
+  // ── 탭 ──
+  html+=`<div style="display:flex;gap:4px;background:#fff;padding:6px;border-radius:16px;margin-bottom:12px">
+    ${[["today","오늘 기록"],["history","📋 기록"],["trend","📈 추이"]].map(([t2,l])=>`
+    <button class="tab-btn ${S.tab===t2?"on":""}" onclick="setTab('${t2}')">${l}</button>`).join("")}
+  </div>`;
+
+  // ── 오늘 기록 ──
+  if(S.tab==="today"){
+    html+=`<div style="display:flex;gap:8px;margin-bottom:12px">
+      ${[["food","🍽 음식"],["exercise","🏃 운동"]].map(([s2,l])=>`
+      <button onclick="S.section='${s2}';render()" style="padding:9px 20px;border-radius:100px;border:1.5px solid ${S.section===s2?"#3182f6":"#e5e8eb"};background:${S.section===s2?"#f0f5ff":"#fff"};color:${S.section===s2?"#3182f6":"#8b95a1"};font-weight:600;font-size:14px;cursor:pointer">${l}</button>`).join("")}
+    </div>`;
+
+    if(S.section==="food"){
+      html+=`<div class="card">
+        <div class="row between" style="margin-bottom:16px">
+          <div style="font-size:15px;font-weight:700">음식 추가</div>
+          <span class="ai-badge">✦ AI 검색</span>
+        </div>
+        <div style="margin-bottom:12px">
+          <div style="font-size:12px;color:#8b95a1;margin-bottom:6px;font-weight:500">음식 이름 검색</div>
+          <div style="position:relative">
+            <span style="position:absolute;left:13px;top:50%;transform:translateY(-50%);font-size:15px;pointer-events:none;z-index:1">${S.srStatus==="loading"?`<span class="spinner"></span>`:"🔍"}</span>
+            <input id="srInput" class="ifield" placeholder="예: 된장찌개, 치킨, 아이스 아메리카노..." value="${S.srQuery.replace(/"/g,'&quot;')}" style="padding-left:42px"
+              oninput="onSrInput(this.value)"
+              onkeydown="onSrKey(event)"
+              onfocus="if(S.srResults.length){S.srOpen=true;render()}"/>
+            <div id="srDrop" class="sdrop ${S.srOpen&&(S.srStatus!=='idle')?"open":""}">
+              ${S.srStatus==="loading"?`<div style="padding:18px 16px;display:flex;align-items:center;gap:10px;color:#8b95a1;font-size:13px"><span class="spinner"></span> AI가 음식 정보를 찾는 중…</div>`:""}
+              ${S.srStatus==="error"?`<div style="padding:16px;text-align:center;font-size:13px;color:#f04452">검색 실패 · 직접 칼로리를 입력해주세요</div>`:""}
+              ${S.srStatus==="done"&&S.srResults.length===0?`<div style="padding:16px;text-align:center;font-size:13px;color:#8b95a1">결과 없음 · 직접 입력해주세요</div>`:""}
+              ${S.srStatus==="done"&&S.srResults.length>0?`
+                <div style="padding:8px 16px 6px;font-size:11px;color:#8b95a1;border-bottom:1px solid #f2f4f6;display:flex;align-items:center;gap:5px">
+                  <span class="ai-badge" style="font-size:10px">✦ AI</span> 검색 결과 ${S.srResults.length}건
+                </div>
+                ${S.srResults.map((f,i)=>`
+                <div class="sitem ${S.srHov===i?"hov":""}" onmouseenter="S.srHov=${i};render()" onmousedown="selectFood(${i})">
+                  <span style="font-size:17px;margin-right:12px;flex-shrink:0">🍽</span>
+                  <div style="flex:1;min-width:0">
+                    <div style="font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
+                    <div style="display:flex;gap:5px;margin-top:4px;flex-wrap:wrap">
+                      ${f.serving?`<span class="ntag">📏 ${f.serving}</span>`:""}
+                      ${f.carbs?`<span class="ntag">탄 ${f.carbs}g</span>`:""}
+                      ${f.protein?`<span class="ntag">단 ${f.protein}g</span>`:""}
+                      ${f.fat?`<span class="ntag">지 ${f.fat}g</span>`:""}
+                    </div>
+                  </div>
+                  <div style="text-align:right;flex-shrink:0;margin-left:10px">
+                    <div style="font-size:16px;font-weight:800;color:#3182f6">${comma(f.kcal)}</div>
+                    <div style="font-size:11px;color:#8b95a1">kcal</div>
+                  </div>
+                </div>`).join("")}`:""}
+            </div>
+          </div>
+        </div>
+        <div style="margin-bottom:12px">
+          <div style="font-size:12px;color:#8b95a1;margin-bottom:6px;font-weight:500">칼로리 (kcal)</div>
+          <input id="fKcal" class="ifield" type="number" placeholder="검색 선택 시 자동 입력, 직접 수정도 가능" value="${S.foodKcal}" oninput="S.foodKcal=this.value"/>
+        </div>
+        ${(S.foodProtein||S.foodCarbs||S.foodFat)?`
+        <div style="margin-bottom:12px;padding:10px 14px;background:#f0f5ff;border-radius:12px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:12px;color:#3182f6;font-weight:700">영양 정보</span>
+          ${S.foodCarbs?`<span style="font-size:12px;color:#4e5968">탄수화물 ${S.foodCarbs}g</span>`:""}
+          ${S.foodProtein?`<span style="font-size:12px;color:#4e5968">단백질 ${S.foodProtein}g</span>`:""}
+          ${S.foodFat?`<span style="font-size:12px;color:#4e5968">지방 ${S.foodFat}g</span>`:""}
+        </div>`:""}
+        <button class="btn-primary" onclick="addFood()" ${(!S.foodName||!S.foodKcal)?"disabled":""}>추가하기</button>
+        ${log.foods.length?`
+        <div style="margin-top:20px">
+          <div style="font-size:12px;color:#8b95a1;font-weight:600;margin-bottom:2px">오늘 먹은 것</div>
+          ${log.foods.map((f,i)=>`
+          <div class="litem">
+            <div style="width:36px;height:36px;border-radius:11px;background:#fff0f5;display:flex;align-items:center;justify-content:center;font-size:17px;margin-right:12px;flex-shrink:0">🍽</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:15px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${f.name}</div>
+              <div style="font-size:12px;color:#8b95a1;margin-top:2px">${f.time||""}${(f.protein||f.carbs||f.fat)?`<span style="margin-left:6px;color:#c9d4e0">· 탄${f.carbs||"?"}g 단${f.protein||"?"}g 지${f.fat||"?"}g</span>`:""}</div>
+            </div>
+            <div style="font-size:15px;font-weight:700;color:#3182f6;margin-left:8px;flex-shrink:0">${comma(f.kcal)} kcal</div>
+            <button class="rmv" onclick="removeFood(${i})">×</button>
+          </div>`).join("")}
+          <div style="padding-top:14px;display:flex;justify-content:space-between;font-size:14px;font-weight:700">
+            <span>합계</span><span style="color:#3182f6">${comma(food)} kcal</span>
+          </div>
+        </div>`:""}
+      </div>`;
+    }
+
+    if(S.section==="exercise"){
+      const prev = EX.find(e=>e.name===S.exName);
+      const prevBurn = prev&&S.exMin ? Math.round(prev.met*(+S.profile.weight||65)*(+S.exMin/60)) : null;
+      html+=`<div class="card">
+        <div style="font-size:15px;font-weight:700;margin-bottom:16px">운동 추가</div>
+        <div style="margin-bottom:12px">
+          <div style="font-size:12px;color:#8b95a1;margin-bottom:6px;font-weight:500">운동 종류</div>
+          <select class="ifield" onchange="S.exName=this.value;render()">
+            <option value="">선택...</option>
+            ${EX.map(e=>`<option value="${e.name}" ${S.exName===e.name?"selected":""}>${e.name}</option>`).join("")}
+          </select>
+        </div>
+        <div>
+          <div style="font-size:12px;color:#8b95a1;margin-bottom:6px;font-weight:500">운동 시간 (분)</div>
+          <input class="ifield" type="number" placeholder="예: 30" value="${S.exMin}" oninput="S.exMin=this.value;render()"/>
+        </div>
+        ${prevBurn!=null?`<div style="margin-top:10px;padding:11px 14px;background:#e8faf2;border-radius:12px;font-size:13px;color:#00c471;font-weight:600">예상 소모 칼로리: ${comma(prevBurn)} kcal</div>`:""}
+        <button class="btn-primary" style="margin-top:14px" onclick="addExercise()" ${(!S.exName||!S.exMin)?"disabled":""}>추가하기</button>
+        ${log.exercises.length?`
+        <div style="margin-top:20px">
+          <div style="font-size:12px;color:#8b95a1;font-weight:600;margin-bottom:2px">오늘 운동</div>
+          ${log.exercises.map((e,i)=>`
+          <div class="litem">
+            <div style="width:36px;height:36px;border-radius:11px;background:#e8faf2;display:flex;align-items:center;justify-content:center;font-size:17px;margin-right:12px;flex-shrink:0">🏃</div>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:15px;font-weight:600">${e.name}</div>
+              <div style="font-size:12px;color:#8b95a1;margin-top:2px">${e.minutes}분 · ${e.time||""}</div>
+            </div>
+            <div style="font-size:15px;font-weight:700;color:#00c471;margin-left:8px;flex-shrink:0">−${comma(e.kcal)} kcal</div>
+            <button class="rmv" onclick="removeExercise(${i})">×</button>
+          </div>`).join("")}
+          <div style="padding-top:14px;display:flex;justify-content:space-between;font-size:14px;font-weight:700">
+            <span>합계 소모</span><span style="color:#00c471">−${comma(burn)} kcal</span>
+          </div>
+        </div>`:""}
+      </div>`;
+    }
+  }
+
+  // ── 기록 탭 ──
+  if(S.tab==="history"){
+    const cm=today().slice(0,7);
+    const months=[...new Set(Object.keys(S.logs).map(d=>d.slice(0,7)))].sort((a,b)=>b.localeCompare(a));
+    if(!months.length){
+      html+=`<div class="card" style="text-align:center;padding:40px 24px;color:#c9d4e0;font-size:14px">아직 기록이 없어요<br><span style="font-size:12px;margin-top:6px;display:block">음식과 운동을 기록하면 여기에 표시돼요</span></div>`;
+    } else {
+      months.forEach(month=>{
+        const [y,m]=month.split("-");
+        const isCur=month===cm;
+        const mDays=Object.entries(S.logs).filter(([d])=>d.startsWith(month)).sort(([a],[b])=>b.localeCompare(a));
+        if(!mDays.length) return;
+        const mFood=mDays.reduce((s,[,l])=>s+l.foods.reduce((a,f)=>a+f.kcal,0),0);
+        const mBurn=mDays.reduce((s,[,l])=>s+l.exercises.reduce((a,e)=>a+e.kcal,0),0);
+        const mNet=mFood-mBurn;
+        const aFoods=mDays.flatMap(([,l])=>l.foods);
+        const aEx=mDays.flatMap(([,l])=>l.exercises);
+        html+=`<div class="card" style="margin-bottom:12px">
+          <div class="row between" style="margin-bottom:16px">
+            <div>
+              <div style="font-size:16px;font-weight:800;letter-spacing:-0.3px">${y}년 ${m}월
+                ${isCur?`<span style="margin-left:8px;font-size:11px;font-weight:700;color:#3182f6;background:#f0f5ff;padding:2px 8px;border-radius:20px">이번 달</span>`:""}
+              </div>
+              <div style="font-size:12px;color:#8b95a1;margin-top:2px">${mDays.length}일 기록</div>
+            </div>
+            <div style="text-align:right">
+              <div style="font-size:12px;color:#8b95a1">섭취 ${comma(mFood)} · 소모 ${comma(mBurn)}</div>
+              <div style="font-size:15px;font-weight:800;color:${mNet<=mDays.length*tdee?"#00c471":"#f04452"};margin-top:2px">순 ${comma(mNet)} kcal</div>
+            </div>
+          </div>`;
+        if(isCur){
+          mDays.forEach(([ds,l])=>{
+            const df=l.foods.reduce((s,f)=>s+f.kcal,0);
+            const db=l.exercises.reduce((s,e)=>s+e.kcal,0);
+            const dn=df-db;
+            const isT=ds===today();
+            html+=`<div style="border-top:1px solid #f2f4f6;padding-top:12px;margin-top:12px">
+              <div class="row between" style="margin-bottom:8px">
+                <div class="row" style="gap:6px">
+                  <span style="font-size:13px;font-weight:700">${ds.slice(5).replace("-","/")} ${DAY[new Date(ds).getDay()]}</span>
+                  ${isT?`<span style="font-size:10px;font-weight:700;color:#3182f6;background:#f0f5ff;padding:1px 7px;border-radius:10px">오늘</span>`:""}
+                </div>
+                <span style="font-size:13px;font-weight:700;color:${dn<=tdee?"#00c471":"#f04452"}">순 ${comma(dn)} kcal</span>
+              </div>
+              ${l.foods.map(f=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:#f8f9fa;border-radius:8px;margin-bottom:3px">
+                <div style="display:flex;align-items:center;gap:7px"><span>🍽</span><span style="font-size:13px;color:#4e5968">${f.name}</span>${f.time?`<span style="font-size:11px;color:#c9d4e0">${f.time}</span>`:""}</div>
+                <span style="font-size:13px;font-weight:600;color:#3182f6">${comma(f.kcal)} kcal</span>
+              </div>`).join("")}
+              ${l.exercises.map(e=>`<div style="display:flex;justify-content:space-between;align-items:center;padding:5px 10px;background:#f0faf5;border-radius:8px;margin-bottom:3px">
+                <div style="display:flex;align-items:center;gap:7px"><span>🏃</span><span style="font-size:13px;color:#4e5968">${e.name} ${e.minutes}분</span>${e.time?`<span style="font-size:11px;color:#c9d4e0">${e.time}</span>`:""}</div>
+                <span style="font-size:13px;font-weight:600;color:#00c471">−${comma(e.kcal)} kcal</span>
+              </div>`).join("")}
+            </div>`;
+          });
+        } else {
+          html+=`<div style="border-top:1px solid #f2f4f6;padding-top:14px">
+            <div class="gr gr3 gap8" style="margin-bottom:14px">
+              ${[["총 섭취",mFood,"#3182f6","🍽","kcal"],["총 소모",mBurn,"#00c471","🔥","kcal"],["기록일수",mDays.length,"#8b95a1","📅","일"]].map(s=>`
+              <div style="background:#f8f9fa;border-radius:12px;padding:10px 8px;text-align:center">
+                <div style="font-size:11px;color:#8b95a1;margin-bottom:3px">${s[3]} ${s[0]}</div>
+                <div style="font-size:16px;font-weight:800;color:${s[2]}">${comma(s[1])}</div>
+                <div style="font-size:10px;color:#c9d4e0">${s[4]}</div>
+              </div>`).join("")}
+            </div>`;
+          if(aFoods.length){
+            const fm={}; aFoods.forEach(f=>{fm[f.name]=(fm[f.name]||0)+f.kcal;});
+            const t3=Object.entries(fm).sort((a,b)=>b[1]-a[1]).slice(0,3);
+            html+=`<div style="margin-bottom:10px"><div style="font-size:11px;color:#8b95a1;font-weight:600;margin-bottom:6px">🍽 많이 먹은 음식</div>
+              ${t3.map(([n,k],i)=>`<div style="display:flex;justify-content:space-between;padding:7px 10px;background:#f8f9fa;border-radius:8px;margin-bottom:3px">
+                <div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#c9d4e0;font-weight:700">#${i+1}</span><span style="font-size:13px;color:#4e5968">${n}</span></div>
+                <span style="font-size:13px;font-weight:600;color:#3182f6">${comma(k)} kcal</span>
+              </div>`).join("")}
+            </div>`;
+          }
+          if(aEx.length){
+            const em={}; aEx.forEach(e=>{em[e.name]=(em[e.name]||0)+e.kcal;});
+            const t3=Object.entries(em).sort((a,b)=>b[1]-a[1]).slice(0,3);
+            html+=`<div><div style="font-size:11px;color:#8b95a1;font-weight:600;margin-bottom:6px">🏃 많이 한 운동</div>
+              ${t3.map(([n,k],i)=>`<div style="display:flex;justify-content:space-between;padding:7px 10px;background:#f0faf5;border-radius:8px;margin-bottom:3px">
+                <div style="display:flex;align-items:center;gap:6px"><span style="font-size:11px;color:#c9d4e0;font-weight:700">#${i+1}</span><span style="font-size:13px;color:#4e5968">${n}</span></div>
+                <span style="font-size:13px;font-weight:600;color:#00c471">−${comma(k)} kcal</span>
+              </div>`).join("")}
+            </div>`;
+          }
+          html+=`</div>`;
+        }
+        html+=`</div>`;
+      });
+    }
+  }
+
+  // ── 추이 탭 ──
+  if(S.tab==="trend"){
+    // 목표 설정 카드
+    html+=`<div class="card" style="margin-bottom:12px">
+      <div class="row" style="gap:10px;margin-bottom:16px">
+        <div style="width:40px;height:40px;border-radius:12px;background:#fff8ee;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">🎯</div>
+        <div><div style="font-size:15px;font-weight:700">월별 감량 목표</div><div style="font-size:12px;color:#8b95a1;margin-top:1px">목표 달성 시 그래프에 반영돼요</div></div>
+      </div>
+      <div style="display:flex;gap:8px;margin-bottom:14px;align-items:flex-end">
+        <div style="flex:1"><div style="font-size:12px;color:#8b95a1;margin-bottom:6px;font-weight:500">목표 월</div>
+          <input class="ifield" type="month" value="${S.goalMonth}" min="${today().slice(0,7)}" oninput="S.goalMonth=this.value" style="font-size:14px"/></div>
+        <div style="flex:1"><div style="font-size:12px;color:#8b95a1;margin-bottom:6px;font-weight:500">목표 감량 (kg)</div>
+          <input class="ifield" type="number" step="0.1" min="0.1" max="10" placeholder="예: 2.0" value="${S.goalKg}" oninput="S.goalKg=this.value"/></div>
+        <button onclick="addGoal()" ${(!S.goalMonth||!S.goalKg)?"disabled":""}
+          style="background:#3182f6;border:none;border-radius:12px;padding:13px 16px;color:#fff;font-weight:700;font-size:15px;cursor:pointer;flex-shrink:0;opacity:${(!S.goalMonth||!S.goalKg)?0.4:1}">추가</button>
+      </div>
+      ${S.goals.length?S.goals.map(g=>{
+        const [y,m]=g.month.split("-");
+        return `<div style="display:flex;align-items:center;padding:12px 0;border-bottom:1px solid #f2f4f6;gap:10px">
+          <div style="width:36px;height:36px;border-radius:10px;background:#fff8ee;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">📅</div>
+          <div style="flex:1;margin-left:4px"><div style="font-size:14px;font-weight:600">${y}년 ${m}월</div><div style="font-size:12px;color:#8b95a1;margin-top:2px">이 달 목표 감량</div></div>
+          <div style="font-size:16px;font-weight:800;color:#f04452;margin-right:4px">−${g.targetKg} kg</div>
+          <button class="rmv" onclick="removeGoal('${g.month}')">×</button>
+        </div>`;
+      }).join(""):
+      `<div style="text-align:center;padding:12px 0;font-size:13px;color:#c9d4e0">목표를 추가하면 그래프에 목표선이 표시돼요</div>`}
+    </div>`;
+
+    // 차트 카드
+    const pts = buildChartData();
+    html+=`<div class="card">
+      <div class="row between wrap" style="margin-bottom:16px;gap:8px">
+        <div>
+          <div style="font-size:15px;font-weight:700">체중 추이</div>
+          <div style="font-size:12px;color:#8b95a1;margin-top:2px">${S.profileSaved?`기준 체중 ${S.profile.weight}kg`:"프로필을 먼저 저장해주세요"}</div>
+        </div>
+        <div style="display:flex;gap:4px">
+          ${[["30","30일"],["90","90일"],["180","180일"]].map(([v,l])=>`<button class="btn-sm ${S.chartRange===v?"on":""}" onclick="S.chartRange='${v}';render()" style="padding:6px 12px;font-size:12px">${l}</button>`).join("")}
+        </div>
+      </div>
+      <div style="display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px">
+          <svg width="24" height="10"><line x1="0" y1="5" x2="24" y2="5" stroke="#3182f6" stroke-width="2.5"/></svg>
+          <span style="font-size:12px;color:#4e5968">실제 추이</span>
+        </div>
+        ${S.goals.length?`<div style="display:flex;align-items:center;gap:6px">
+          <svg width="24" height="10"><line x1="0" y1="5" x2="24" y2="5" stroke="#ff9500" stroke-width="2" stroke-dasharray="5,3"/></svg>
+          <span style="font-size:12px;color:#4e5968">목표 체중</span>
+        </div>`:""}
+      </div>
+      ${renderChart(pts)}
+      <div class="gr gr2 gap10" style="margin-top:16px;margin-bottom:${S.goals.length?'16px':'0'}">
+        <div class="chip"><div style="font-size:11px;color:#8b95a1;margin-bottom:4px">현재 체중 (기준)</div>
+          <div style="font-size:20px;font-weight:800">${S.profile.weight}<span style="font-size:13px;font-weight:500;margin-left:2px">kg</span></div></div>
+        ${S.goals.length?`<div class="chip"><div style="font-size:11px;color:#8b95a1;margin-bottom:4px">최종 목표 체중</div>
+          <div style="font-size:20px;font-weight:800;color:#f04452">${((+S.profile.weight)-S.goals.reduce((s,g)=>s+(+g.targetKg),0)).toFixed(1)}<span style="font-size:13px;font-weight:500;margin-left:2px">kg</span></div></div>`:""}
+      </div>
+      ${goalPlanHTML()}
+    </div>`;
+  }
+
+  html+=`<p style="text-align:center;font-size:11px;color:#c9d4e0;margin-top:16px;line-height:1.8">칼로리 정보는 AI 추정값으로 참고용이에요<br>1kg 지방 ≈ 7,700 kcal 기준</p>`;
+
+  el("app").innerHTML = html;
+
+  // 차트 호버 이벤트
+  const svg = el("chartSvg");
+  if(svg){
+    const ptsData = JSON.parse(svg.dataset.pts||"[]");
+    const tip = el("chartTip");
+    svg.querySelectorAll(".chov").forEach(c=>{
+      c.addEventListener("mouseenter", e=>{
+        const idx = +c.dataset.idx;
+        const p = ptsData[idx];
+        if(!p) return;
+        let html2=`<div style="font-weight:700;color:#191f28;margin-bottom:6px">${p.date}</div>`;
+        if(p.actual!=null) html2+=`<div style="color:#3182f6;display:flex;justify-content:space-between;gap:16px"><span>실제 추이</span><span style="font-weight:700">${p.actual.toFixed(2)} kg</span></div>`;
+        if(p.goal!=null) html2+=`<div style="color:#ff9500;display:flex;justify-content:space-between;gap:16px"><span>목표 체중</span><span style="font-weight:700">${p.goal.toFixed(2)} kg</span></div>`;
+        tip.innerHTML=html2; tip.style.display="block";
+        const r=c.getBoundingClientRect();
+        tip.style.left=Math.min(r.left+window.scrollX, window.innerWidth-160)+"px";
+        tip.style.top=(r.top+window.scrollY-tip.offsetHeight-8)+"px";
+      });
+      c.addEventListener("mouseleave",()=>{ tip.style.display="none"; });
+    });
+  }
+
+  // 검색 외부 클릭 닫기
+  document.addEventListener("mousedown", outsideClick, {once:true});
+}
+
+function outsideClick(e){
+  const drop = el("srDrop");
+  const inp = el("srInput");
+  if(drop && inp && !drop.contains(e.target) && e.target!==inp){
+    S.srOpen=false; render();
+  }
+}
+
+// ── 이벤트 핸들러 ─────────────────────────────────────────────
+function setTab(t){ S.tab=t; render(); }
+
+function doSaveProfile(){
+  S.profileSaved=true; save(); render();
+}
+
+function onSrInput(v){
+  S.srQuery=v;
+  S.foodName=v; S.foodKcal=""; S.foodProtein=""; S.foodCarbs=""; S.foodFat="";
+  S.srHov=-1;
+  clearTimeout(srTimer);
+  if(!v.trim()){S.srOpen=false;S.srResults=[];S.srStatus="idle";render();return;}
+  srTimer=setTimeout(()=>searchFood(v),600);
+  render();
+}
+
+function onSrKey(e){
+  if(!S.srOpen||!S.srResults.length) return;
+  if(e.key==="ArrowDown"){e.preventDefault();S.srHov=Math.min(S.srHov+1,S.srResults.length-1);render();}
+  else if(e.key==="ArrowUp"){e.preventDefault();S.srHov=Math.max(S.srHov-1,0);render();}
+  else if(e.key==="Enter"&&S.srHov>=0){e.preventDefault();selectFood(S.srHov);}
+  else if(e.key==="Escape"){S.srOpen=false;render();}
+}
+
+function selectFood(i){
+  const f=S.srResults[i];
+  S.srQuery=f.name; S.foodName=f.name;
+  S.foodKcal=String(f.kcal); S.foodProtein=String(f.protein||"");
+  S.foodCarbs=String(f.carbs||""); S.foodFat=String(f.fat||"");
+  S.srOpen=false; S.srHov=-1; render();
+}
+
+function addFood(){
+  if(!S.foodName||!S.foodKcal) return;
+  const t=today();
+  const log=S.logs[t]||{foods:[],exercises:[]};
+  log.foods.push({name:S.foodName,kcal:+S.foodKcal,protein:S.foodProtein,carbs:S.foodCarbs,fat:S.foodFat,
+    time:new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})});
+  S.logs[t]=log; save();
+  S.foodName=""; S.foodKcal=""; S.foodProtein=""; S.foodCarbs=""; S.foodFat="";
+  S.srQuery=""; S.srResults=[]; S.srOpen=false; render();
+}
+
+function removeFood(i){
+  const t=today(); const log=S.logs[t];
+  if(!log) return;
+  log.foods.splice(i,1); save(); render();
+}
+
+function addExercise(){
+  if(!S.exName||!S.exMin) return;
+  const ex=EX.find(e=>e.name===S.exName);
+  const kcal=ex?Math.round(ex.met*(+S.profile.weight||65)*(+S.exMin/60)):0;
+  const t=today(); const log=S.logs[t]||{foods:[],exercises:[]};
+  log.exercises.push({name:S.exName,minutes:+S.exMin,kcal,
+    time:new Date().toLocaleTimeString("ko-KR",{hour:"2-digit",minute:"2-digit"})});
+  S.logs[t]=log; save(); S.exName=""; S.exMin=""; render();
+}
+
+function removeExercise(i){
+  const t=today(); const log=S.logs[t];
+  if(!log) return;
+  log.exercises.splice(i,1); save(); render();
+}
+
+function addGoal(){
+  if(!S.goalMonth||!S.goalKg) return;
+  S.goals=S.goals.filter(g=>g.month!==S.goalMonth);
+  S.goals.push({month:S.goalMonth,targetKg:+S.goalKg});
+  S.goals.sort((a,b)=>a.month.localeCompare(b.month));
+  save(); S.goalMonth=""; S.goalKg=""; render();
+}
+
+function removeGoal(month){
+  S.goals=S.goals.filter(g=>g.month!==month); save(); render();
+}
+
+// ── 시작 ──────────────────────────────────────────────────────
+load();
+render();
+</script>
+</body>
+</html>
